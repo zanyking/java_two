@@ -1,0 +1,18 @@
+
+<window apply="org.zkoss.bind.BindComposer" 
+	viewModel="@id('vm') @init('idv.zanyking.javatwo.UserVM')">
+	
+	
+	<textbox value="@bind(vm.user.firstName)"/>	
+	<textbox value="@bind(vm.user.lastName)"/>
+	
+	
+	Hello, <label value="@load(vm.user.fullName)"/>!
+
+
+</window>
+
+
+
+
+

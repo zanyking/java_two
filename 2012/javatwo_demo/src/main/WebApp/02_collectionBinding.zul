@@ -1,0 +1,21 @@
+
+<window apply="org.zkoss.bind.BindComposer" 
+	viewModel="@id('vm') @init('idv.zanyking.javatwo.UserVM')">
+	
+	
+	<vlayout children="@load(vm.cities)">
+	
+		<template name="children" var="city">
+			<hlayout>
+				<label value="@load(city.name)" style="color:red"/>
+				<label value="@load(city.description)"/>
+			</hlayout>
+		</template>
+	</vlayout>
+
+</window>
+
+
+
+
+
