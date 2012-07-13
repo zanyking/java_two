@@ -7,7 +7,7 @@
 	<textbox value="@bind(vm.user.lastName)"/>
 	
 	
-	Hello, <label value="@load(vm.user.fullName)"/>!
+	Hello, <label value="@load(vm.user.firstName)"/>!
 
 
 

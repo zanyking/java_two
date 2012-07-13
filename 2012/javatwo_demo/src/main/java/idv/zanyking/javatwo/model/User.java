@@ -3,7 +3,6 @@
  */
 package idv.zanyking.javatwo.model;
 
-import org.zkoss.bind.annotation.NotifyChange;
 
 /**
  * @author Ian YT Tsai (zanyking)
@@ -23,21 +22,18 @@ public class User {
 	public String getFirstName() {
 		return firstName;
 	}
-	@NotifyChange({"firstName", "fullName"})
 	public void setFirstName(String firstName) {
 		this.firstName = firstName;
 	}
 	public String getLastName() {
 		return lastName;
 	}
-	@NotifyChange({"firstName", "fullName"})
 	public void setLastName(String lastName) {
 		this.lastName = lastName;
 	}
 	public String getFullName(){
 		return firstName + " " + lastName; 
 	}
-	@NotifyChange("married")
 	public void setMarried(boolean married) {
 		this.married = married;
 	}

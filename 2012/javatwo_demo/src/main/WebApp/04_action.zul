@@ -1,0 +1,13 @@
+
+<window apply="org.zkoss.bind.BindComposer" 
+	viewModel="@id('vm') @init('idv.zanyking.javatwo.UserVM')">
+	
+	<checkbox label="married" checked="@bind(vm.user.married)"/>
+	<button /onClick="@command('save')"> 
+
+</window>
+
+
+
+
+
