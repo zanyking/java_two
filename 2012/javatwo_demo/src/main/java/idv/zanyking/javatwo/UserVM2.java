@@ -1,6 +1,7 @@
 /**
  * 
  */
+
 package idv.zanyking.javatwo;
 
 import java.util.List;
@@ -20,9 +21,9 @@ import org.zkoss.zk.ui.select.annotation.WireVariable;
  */
 @VariableResolver(DummyVariableResolver.class)
 public class UserVM2 {
+
 	@WireVariable
 	private List<City> cities;
-
 	public List<City> getCities() {
 		return cities;
 	}
@@ -40,8 +41,6 @@ public class UserVM2 {
 	public void saveUser(){
 		
 	}
-	
-	
 	
 	
 }

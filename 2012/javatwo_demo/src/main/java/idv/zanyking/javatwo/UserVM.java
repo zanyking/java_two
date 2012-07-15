@@ -37,7 +37,6 @@ public class UserVM {
 	public User getUser() {
 		return user;
 	}
-	
 }
 
 
