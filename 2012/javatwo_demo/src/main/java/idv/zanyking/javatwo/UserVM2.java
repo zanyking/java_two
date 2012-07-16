@@ -9,9 +9,11 @@ import java.util.List;
 import idv.zanyking.javatwo.model.City;
 import idv.zanyking.javatwo.model.DummyVariableResolver;
 import idv.zanyking.javatwo.model.User;
+import idv.zanyking.javatwo.model.UserService;
 
 import org.zkoss.bind.annotation.Command;
 import org.zkoss.bind.annotation.Init;
+import org.zkoss.bind.annotation.NotifyChange;
 import org.zkoss.zk.ui.select.annotation.VariableResolver;
 import org.zkoss.zk.ui.select.annotation.WireVariable;
 
@@ -37,10 +39,17 @@ public class UserVM2 {
 		return user;
 	}
 	
+	@WireVariable
+	private UserService userService;
+	
+	@NotifyChange("user")
 	@Command("save")
 	public void saveUser(){
-		
+		userService.save( user);
+		user = new User();
 	}
 	
 	
+	
 }
+

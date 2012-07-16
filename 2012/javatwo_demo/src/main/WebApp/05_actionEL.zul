@@ -6,7 +6,8 @@ viewModel="@id('vm') @init('idv.zanyking.javatwo.UserVM2')">
 	<textbox value="@bind(vm.user.lastName)"/>
 	<checkbox label="married" checked="@bind(vm.user.married)"/>
 
-	<button onClick="@command('save')" /> 
+	<button onPopup="@command('asyncUpdateCities')"
+	onClick="@command(empty vm.user.married? 'saveMarried' : 'saveSingle')"/> 
 
 
 </window>
@@ -15,3 +16,4 @@ viewModel="@id('vm') @init('idv.zanyking.javatwo.UserVM2')">
 
 
 
+	
