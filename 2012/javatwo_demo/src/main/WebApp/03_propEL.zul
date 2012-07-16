@@ -1,9 +1,11 @@
 
 <window apply="org.zkoss.bind.BindComposer" 
 	viewModel="@id('vm') @init('idv.zanyking.javatwo.UserVM')">
+
 	
 	<checkbox label="married" checked="@bind(vm.user.married)"/>
-	<image src="@bind(vm.user.married? 'img/married.jpg' : 'img/single.jpg' )"/>
+	<image src="@bind(vm.user.married? 
+		'img/married.jpg' : 'img/single.jpg' )"/>
 
 </window>
 
