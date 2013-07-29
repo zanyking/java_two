@@ -1,0 +1,42 @@
+
+
+Active Application Monitoring 
+
+其實本次的講題，有點是在介紹該如何善用現代化的Logging System(Logback)，如何一開始就規劃好你的logging System，
+還有一些針對logging System更深入的思考與可能性分析。
+
+希望各位在聽過這次的講題後，都不會遇上我所遇上的問題，它可是個搞不好有燒掉10萬美金的問題喔(用人天折算出來的)。
+
+事件緣起：
+	我仍在ZK工作(ZK是一個Open Source的Java Ajax Framework)的時候，在2011年為了協助最大的客戶的系統可以順利上線，被外派到Minnesota去做開發顧問服務(簡單的說，就是在開發團隊旁邊圍事的)
+
+	事件：
+		客戶開發出來的Web App 在整合測試的時候發現：一個page的loading 花費了將近 3000 ms。
+
+	當時的狀況： 
+
+		在客戶的開發中心裡，總共有三個主要team在這個project底下工作，Web App Team 、 Biz Service Team 還有 QA Team。
+		在對系統做 整合測試時，Web App Team 發現，既使在正常負載，畫面的loading仍舊太慢 (Avg 3000 ms)，必須要找出原因。
+	處理過程：
+		客戶的開發主管要求他們的總工程師分析所有可能發生這問題的原因。
+		問題剛剛發生的時候，總工程師一開始很單純的想：『問題是發生在整合測試的時候的，所以這不是我這邊的問題，應該是Biz Service 那邊搞砸了什麼』
+		問題丟給了Biz Service，Biz Service 那邊開始追查Log 記錄。
+		但很不幸的，在一個負載壓力的測試情境下，log4j記錄下來的log是各個thread交錯穿插在一起的，於是Biz Team 改了log4j 的設定(給thread id)，然後要求QA重跑測試。
+		有了對每筆log 給上thread id，Biz Service的開發人員終於可以把特定的thread id 的log過濾出來...但看來事情沒那麼容易。
+			1. 雖然可以把logs 根據 thread id 分類好，但有人能光看上面的timestamp就知道是哪兩個logs之間花了很多時間嗎？
+			2. 
+
+找了我們開始思考，如何在期限內找到問題發生的原因並解決
+		會不會是程式裡有什麼
+
+幕後花絮：
+		2011年 March - US Minnesota,  我到達當地時的景象：
+		[IMG_1098.JPG]
+		因為當時我沒車(不會開、就算會也不敢開)，然後也不知道怎麼叫車，所以出門只能走路，這種地方要出門走路...
+		[IMG_1130.JPG]
+		這天天氣好好啊～～～
+		[IMG_1141.JPG]
+		然後，一定得打綁腿防止雪鑽進褲管裡，因為以我當時的體重(90KG)走在這種『人行道』上肯定GG。
+		[MN20101213_bus-stop_33.jpg]
+		好，報告完畢，散會！
+		
