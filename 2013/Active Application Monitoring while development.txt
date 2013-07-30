@@ -11,23 +11,113 @@ Active Application Monitoring
 	我仍在ZK工作(ZK是一個Open Source的Java Ajax Framework)的時候，在2011年為了協助最大的客戶的系統可以順利上線，被外派到Minnesota去做開發顧問服務(簡單的說，就是在開發團隊旁邊圍事的)
 
 	事件：
-		客戶開發出來的Web App 在整合測試的時候發現：一個page的loading 花費了將近 3000 ms。
+		客戶開發出來的Web App 在整合測試的時候發現：page的loading 花費了將近 3000 ms(有些甚至高達10,000ms)
 
 	當時的狀況： 
 
 		在客戶的開發中心裡，總共有三個主要team在這個project底下工作，Web App Team 、 Biz Service Team 還有 QA Team。
-		在對系統做 整合測試時，Web App Team 發現，既使在正常負載，畫面的loading仍舊太慢 (Avg 3000 ms)，必須要找出原因。
+		在對系統做整合測試時，QA Team 發現，既使在Server負載正常的情況下，畫面的loading 仍舊太慢 (Avg 3000 ms)，必須要找出原因。
 	處理過程：
-		客戶的開發主管要求他們的總工程師分析所有可能發生這問題的原因。
-		問題剛剛發生的時候，總工程師一開始很單純的想：『問題是發生在整合測試的時候的，所以這不是我這邊的問題，應該是Biz Service 那邊搞砸了什麼』
-		問題丟給了Biz Service，Biz Service 那邊開始追查Log 記錄。
-		但很不幸的，在一個負載壓力的測試情境下，log4j記錄下來的log是各個thread交錯穿插在一起的，於是Biz Team 改了log4j 的設定(給thread id)，然後要求QA重跑測試。
-		有了對每筆log 給上thread id，Biz Service的開發人員終於可以把特定的thread id 的log過濾出來...但看來事情沒那麼容易。
-			1. 雖然可以把logs 根據 thread id 分類好，但有人能光看上面的timestamp就知道是哪兩個logs之間花了很多時間嗎？
-			2. 
+		客戶的專案主管要求Web App Team、Biz Service Team 的總工程師們各自去分析所有可能發生這問題的原因。
+		
+		Biz Service 負責追查這件事的人，發現測試期間產生出來的Logs長這樣：
 
-找了我們開始思考，如何在期限內找到問題發生的原因並解決
-		會不會是程式裡有什麼
+		[INFO] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+		[INFO] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+		[INFO] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+
+		很不幸的，在一個負載壓力的測試情境下，log4j記錄下來的log是各個thread交錯穿插在一起的，這log對追查performance的問題，一點幫助也沒有。
+
+		於是Biz Service Team 開始在每個Web App 端會用到的Service的進入點(所幸不多)，加上一段如下的簡短log:
+			long start = System.currentTimeInMillis();
+			// biz logic...
+			logger.info("service XXX's elapsed time: "+
+				(System.currentTimeInMillis()-start +" ms");
+		
+		在把測試環境重跑過一遍後，他們宣布了，問題不是出在他們這裡。
+
+		於是，壓力現在全都到Web App Team這邊了，web App team人必須得要負責追出來，到底是哪個地方在慢？
+
+
+		於是該Team 把所有的主要開發工程師、顧問(也就是我)都找來開會，思考到底要怎樣才能:
+		1. 找出什麼地方的程式碼花去太多時間。
+		2. 找出該段程式碼會慢的原因。
+
+		在分析Web App產生出來的log時，我們遭遇了與Biz Team相同的問題，但這次，在servlet Filter 裡，加上上面那段logging程式碼是沒用的，因為我們必須要trace 到特定可以界定出問題的對象(method call)。於是Web App Team 改了log4j 的設定，對每筆log給thread id，然後要求QA重跑測試。
+
+		[INFO][thread-1] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+		[INFO][thread-2] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+		[INFO][thread-3] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+		[INFO][thread-1] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+		...
+		
+		有了對每筆log 給上thread id，Web App team 的開發人員似乎終於可以把特定的工作的log過濾出來了...但看來事情沒那麼容易。
+			1. 雖然可以把logs 根據 thread id 分類好，但有人能光看上面的timestamp 就知道兩個logs之間花了多少時間嗎？
+			2. 在一串同thread ID的資料中，那到底是哪兩個的logs 之間，代表著『我們想要追蹤的程序』的進入與退出呢？ thread 是從Application Server的thread pool 裡拿的，它會被reuse，一串同Thread id的logs 其實代表著很多個『不同種類程序的進入與退出』，其中每個程序在debug mode下，可能都會產生 30~100+的logs。
+			3. 承2., 這個Web App的thread會需要跑Browser Page Request, Ajax Request, Backend data fetching 等process，這些工作全都從thread pool拿 thread 出來用。
+
+
+		在時間有限的情況下，我只好自己寫了一個簡單的小library叫做Blackbox，它的工作原理很簡單：
+		1. 它以threadLocal作為它的Context
+		2. 每次request進入BlackBox的servlet Filter的時候作：
+
+		try{
+			
+			Blackbox.push("request URL: "+request.getRequestURI());
+			
+			filterChain.doFilter(req, res);
+		}finally{
+			Blackbox.pop("End of request");
+			Blackbox.flush();// output to Console...
+		}
+		輸出的結果長成這樣：
+
+		[1234] ms {class.method.lineNumber} request URL: localhost:8080/MyApp/abc/def
+			[0] ms {class.method.lineNumber} End of request
+
+		3. 先把整個Web App用git branch 掉後，開始在每個時間花太長的部份加上如同Filter裡的程式碼：
+		try{
+			Blackbox.push("Hello World!");
+			// suspicious code....
+		}finally{
+			Blackbox.pop("End doXXX");
+		}
+
+		遇到程式很長，不確定哪一段有問題的怎麼辦？
+		try{
+			Blackbox.push("Start Hello World!");
+			// suspicious code....
+			Blackbox.record("step0");
+			// bla bla bla...
+			Blackbox.record("step1");
+			// bla bla bla...
+			Blackbox.record("step2");
+			// bla bla bla...
+		}finally{
+			Blackbox.pop("End of Hello World!");
+		}
+		輸出結果長成這樣：
+
+		[1234] ms {class.method.lineNumber} request URL: localhost:8080/MyApp/abc/def
+			[   1] ms {class.method.lineNumber} Start of doA
+				[   0] ms {class.method.lineNumber} End of doA
+			[   0] ms {class.method.lineNumber} Start Hello World!
+				[   0] ms {class.method.lineNumber} step0
+				[1234] ms {class.method.lineNumber} step1
+				[   0] ms {class.method.lineNumber} step2
+				[   0] ms {class.method.lineNumber} End of Hello World!
+			[0] ms {class.method.lineNumber} End of request
+
+
+
+
+
+
+(Shot Gun Programming)
+
+
+
+
 
 幕後花絮：
 		2011年 March - US Minnesota,  我到達當地時的景象：
