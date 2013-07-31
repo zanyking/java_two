@@ -126,11 +126,13 @@ Active Application Monitoring
 	於是我開始去Survey java世界裡比較好的解法會是什麼，首先，我查找了所有跟這個主題相關的技術：
 
 	JVMPI/JVMTI
+		
 	Java Instrumentation
 	Logging Solutions:
 		Log4j
 		Logback
 
+	最後，
 
 
 
