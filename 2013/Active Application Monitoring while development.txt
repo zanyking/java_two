@@ -83,7 +83,7 @@ Active Application Monitoring
 			Blackbox.pop("End doXXX");
 		}
 
-		遇到程式很長，不確定哪一段有問題的怎麼辦？
+		4. 遇到程式很長，不確定哪一段有問題的怎麼辦？
 		try{
 			Blackbox.push("Start Hello World!");
 			// suspicious code....
@@ -96,17 +96,40 @@ Active Application Monitoring
 		}finally{
 			Blackbox.pop("End of Hello World!");
 		}
-		輸出結果長成這樣：
+		5. 輸出結果長成這樣：
 
 		[1234] ms {class.method.lineNumber} request URL: localhost:8080/MyApp/abc/def
 			[   1] ms {class.method.lineNumber} Start of doA
 				[   0] ms {class.method.lineNumber} End of doA
-			[   0] ms {class.method.lineNumber} Start Hello World!
+			[1233] ms {class.method.lineNumber} Start Hello World!
 				[   0] ms {class.method.lineNumber} step0
 				[1234] ms {class.method.lineNumber} step1
 				[   0] ms {class.method.lineNumber} step2
 				[   0] ms {class.method.lineNumber} End of Hello World!
 			[0] ms {class.method.lineNumber} End of request
+
+
+		於是，我知道問題出在 step1 跟 setp 2之間了。
+
+		接下去，我透過二分逼近法一路追下去，然後用手工+JMeter的方式跑過幾個特定的情境，最後終於找到問題發生的原因。
+
+		原因既不是Web App 太慢(有部分區塊的確慢，但不是主要的因素)，也不是Biz Service太慢，而是...
+
+		網路太慢，冏rz...
+
+		他們家的網路慢，還不是平均的慢，而是有高峰離峰的，只要是QA Team 開始連線特定的環境(沒錯，就是我們的環境！)作測試，整個網路就會慢下來。
+
+		冏rz...
+
+	這次事件，我基本上是透過 shotgun surgery 的方式找到並解決問題的，但有沒有更好的解決方法呢？
+
+	於是我開始去Survey java世界裡比較好的解法會是什麼，首先，我查找了所有跟這個主題相關的技術：
+
+	JVMPI/JVMTI
+	Java Instrumentation
+	Logging Solutions:
+		Log4j
+		Logback
 
 
 
