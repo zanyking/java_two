@@ -16,19 +16,31 @@ Active Application Monitoring
 	當時的狀況： 
 
 		在客戶的開發中心裡，總共有三個主要team在這個project底下工作，Web App Team 、 Biz Service Team 還有 QA Team。
-		在對系統做整合測試時，QA Team 發現，既使在Server負載正常的情況下，畫面的loading 仍舊太慢 (Avg 3000 ms)，必須要找出原因。
+		在對系統做測試時，QA Team 發現，既使在Server負載正常的情況下，畫面的loading 仍舊太慢 (Avg 3000 ms)，必須要找出原因。
 	處理過程：
 		客戶的專案主管要求Web App Team、Biz Service Team 的總工程師們各自去分析所有可能發生這問題的原因。
 		
 		Biz Service 負責追查這件事的人，發現測試期間產生出來的Logs長這樣：
 
-		[INFO] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
-		[INFO] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
-		[INFO] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+
+
+		
+		[INFO] 2011-02-15 13:43:03.123 (myServiceServlet.java 12) log Hello world!
+		[INFO] 2011-02-15 13:43:03.124 (myServiceServlet.java 12) log Hello world!
+		[INFO] 2011-02-15 13:43:03.124 (myServiceServlet.java 12) log Hello world!
+		[INFO] 2011-02-15 13:43:03.125 (myServiceServlet.java 12) log Hello world!
+		[INFO] 2011-02-15 13:43:03.125 (myServiceServlet.java 12) log Hello world!
+		[INFO] 2011-02-15 13:43:03.129 (myServiceServlet.java 12) log Hello world!
+		[INFO] 2011-02-15 13:43:03.543 (myServiceServlet.java 25) log do something!
+
+
+
 
 		很不幸的，在一個負載壓力的測試情境下，log4j記錄下來的log是各個thread交錯穿插在一起的，這log對追查performance的問題，一點幫助也沒有。
 
 		於是Biz Service Team 開始在每個Web App 端會用到的Service的進入點(所幸不多)，加上一段如下的簡短log:
+
+
 			long start = System.currentTimeInMillis();
 			// biz logic...
 			logger.info("service XXX's elapsed time: "+
@@ -36,31 +48,73 @@ Active Application Monitoring
 		
 		在把測試環境重跑過一遍後，他們宣布了，問題不是出在他們這裡。
 
-		於是，壓力現在全都到Web App Team這邊了，web App team人必須得要負責追出來，到底是哪個地方在慢？
+		現在，壓力全都到Web App Team這邊了，web App team人必須得要負責追出來，到底是哪個地方在慢？
 
 
 		於是該Team 把所有的主要開發工程師、顧問(也就是我)都找來開會，思考到底要怎樣才能:
 		1. 找出什麼地方的程式碼花去太多時間。
 		2. 找出該段程式碼會慢的原因。
 
-		在分析Web App產生出來的log時，我們遭遇了與Biz Team相同的問題，但這次，在servlet Filter 裡，加上上面那段logging程式碼是沒用的，因為我們必須要trace 到特定可以界定出問題的對象(method call)。於是Web App Team 改了log4j 的設定，對每筆log給thread id，然後要求QA重跑測試。
+		在分析Web App產生出來的log時，我們遭遇了與Biz Team相同的問題，但這次，在servlet Filter 裡，加上上面那段logging程式碼是沒用的，因為：
 
-		[INFO][thread-1] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
-		[INFO][thread-2] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
-		[INFO][thread-3] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
-		[INFO][thread-1] yyyy-mm-dd HH:MM:ss.sss {class.method lineNum}{log messages}
+
+
+		A Call Sequence of Application:
+
+		Method A
+			Method B
+				Method C
+					...
+						Method K
+							// this is the subroutine which spent 1000ms...
+						return
+					...
+				return
+			return
+		return
+
+
+		我們必須要trace 到特定可以界定出問題的對象(method K)才能說我們知道原因。
+
+
+		於是Web App Team 改了log4j 的設定，對每筆log給thread id，然後QA重跑了測試。
+
+
+		[INFO][thd-1] 2011-02-15 13:43:03.123 (myServiceServlet.java 12) log Hello world!
+		[INFO][thd-2] 2011-02-15 13:43:03.124 (myServiceServlet.java 12) log Hello world!
+		[INFO][thd-3] 2011-02-15 13:43:03.124 (myServiceServlet.java 12) log Hello world!
+		[INFO][thd-4] 2011-02-15 13:43:03.125 (myServiceServlet.java 12) log Hello world!
+		[INFO][thd-5] 2011-02-15 13:43:03.125 (myServiceServlet.java 12) log Hello world!
+		[INFO][thd-6] 2011-02-15 13:43:03.129 (myServiceServlet.java 12) log Hello world!
+		[INFO][thd-1] 2011-02-15 13:43:03.543 (myServiceServlet.java 25) log do something!
 		...
+
+
 		
 		有了對每筆log 給上thread id，Web App team 的開發人員似乎終於可以把特定的工作的log過濾出來了...但看來事情沒那麼容易。
 			1. 雖然可以把logs 根據 thread id 分類好，但有人能光看上面的timestamp 就知道兩個logs之間花了多少時間嗎？
 			2. 在一串同thread ID的資料中，那到底是哪兩個的logs 之間，代表著『我們想要追蹤的程序』的進入與退出呢？ thread 是從Application Server的thread pool 裡拿的，它會被reuse，一串同Thread id的logs 其實代表著很多個『不同種類程序的進入與退出』，其中每個程序在debug mode下，可能都會產生 30~100+的logs。
+
+
+		[INFO][thd-1] 2011-02-15 13:43:03.123 (myServiceServlet.java 12) Handle RESTful req:/a/b/c 
+		[INFO][thd-1] 2011-02-15 13:43:03.124 (myServiceServlet.java 28) end of req:/a/b/c 
+		[INFO][thd-1] 2011-02-15 13:43:04.336 (myServiceServlet.java 12) Handle RESTful req:/d/e/f 
+		[INFO][thd-1] 2011-02-15 13:43:04.456 (myServiceServlet.java 28) end of req:/d/e/f 
+		[INFO][thd-6] 2011-02-15 13:43:05.129 (myServiceServlet.java 12) Handle RESTful req:/a/b/c 
+		[INFO][thd-5] 2011-02-15 13:43:06.543 (myServiceServlet.java 12) Handle RESTful req:/d/e/f 
+		[INFO][thd-1] 2011-02-15 13:43:07.123 (WorkingTask.java 356) Start task: "batch generate report"
+		[INFO][thd-1] 2011-02-15 13:43:07.222 (WorkingTask.java 629) End of Task:"batch generate report"
+		[INFO][thd-1] 2011-02-15 13:43:10.001 (ServerPush.java 438) await for Client[uuid-15423] req
+		
+
+
 			3. 承2., 這個Web App的thread會需要跑Browser Page Request, Ajax Request, Backend data fetching 等process，這些工作全都從thread pool拿 thread 出來用。
 
 
-		在時間有限的情況下，我只好自己寫了一個簡單的小library叫做Blackbox，它的工作原理很簡單：
+		在時間有限的情況下，我只好先把整個Web App用git branch 掉後，自己寫了一個簡單的小library(叫做Blackbox)來找問題，它的工作原理很簡單：
 		1. 它以threadLocal作為它的Context
 		2. 每次request進入BlackBox的servlet Filter的時候作：
-
+		
 		try{
 			
 			Blackbox.push("request URL: "+request.getRequestURI());
@@ -70,12 +124,18 @@ Active Application Monitoring
 			Blackbox.pop("End of request");
 			Blackbox.flush();// output to Console...
 		}
+
+
+
 		輸出的結果長成這樣：
 
-		[1234] ms {class.method.lineNumber} request URL: localhost:8080/MyApp/abc/def
-			[0] ms {class.method.lineNumber} End of request
 
-		3. 先把整個Web App用git branch 掉後，開始在每個時間花太長的部份加上如同Filter裡的程式碼：
+		[1234] ms {BBFilter.java 60} request URL: localhost:8080/MyApp/abc/def
+			[0] ms {BBFilter.java 80} End of request
+
+
+		3. 開始在每個時間花太長的部份加上如同Filter裡的程式碼：
+		
 		try{
 			Blackbox.push("Hello World!");
 			// suspicious code....
@@ -98,36 +158,45 @@ Active Application Monitoring
 		}
 		5. 輸出結果長成這樣：
 
-		[1234] ms {class.method.lineNumber} request URL: localhost:8080/MyApp/abc/def
-			[   1] ms {class.method.lineNumber} Start of doA
-				[   0] ms {class.method.lineNumber} End of doA
-			[1233] ms {class.method.lineNumber} Start Hello World!
-				[   0] ms {class.method.lineNumber} step0
-				[1234] ms {class.method.lineNumber} step1
-				[   0] ms {class.method.lineNumber} step2
-				[   0] ms {class.method.lineNumber} End of Hello World!
-			[0] ms {class.method.lineNumber} End of request
+
+		[1234] ms (BBFilter.java 60) request URL: localhost:8080/MyApp/abc/def
+			[1234] ms (MyServlet.java 123) >>> doPost
+				...
+					[1233] ms (MyBO.java 121) >> getUserInfo() user: Ian Tsai
+						[   0] ms (MyBO.java 160) step0
+						[1234] ms (MyBO.java 197) step1
+						[   0] ms (MyBO.java 231) step2
+						[   0] ms (MyBO.java 250) End of  getUserInfo()
+				...
+				[   0] ms (MyServlet.java 206) End of doPost
+			[0] ms (BBFilter.java 80) End of request
 
 
-		於是，我知道問題出在 step1 跟 setp 2之間了。
+		這樣，我就知道問題是出在 step1 跟 setp 2之間了。
+		接著，我透過二分逼近法一路追下去，然後用手工+JMeter的方式跑過所有的情境，最後終於找到問題發生的原因。
 
-		接下去，我透過二分逼近法一路追下去，然後用手工+JMeter的方式跑過幾個特定的情境，最後終於找到問題發生的原因。
+	原因是多重的：
+		有些情況是一個page request 產生的畫面，需要多個Web Service Call的結果才能組成，Web App Team獨立開發的時候存取Mock Service當然沒有問題，而Biz Team對每個獨立的Service 作performance Auditing時當然也沒有問題。但全部加在一起...就是大問題。
+		(這其實是Web App 這邊當初沒有規劃適當的Lazy loading 與 Load after response 機制所導致...但千金難買找知道。)
 
-		原因既不是Web App 太慢(有部分區塊的確慢，但不是主要的因素)，也不是Biz Service太慢，而是...
+		還有一些情況是...網路太慢，冏rz...
+		他們家的網路慢，還不是普通的那種平均慢，而是有高峰離峰的，只要是QA Team 開始連線特定的環境(沒錯，就是我們的環境！)作測試，整個網路就會慢下來。冏rz...
+		(也可能是因為這樣的時快時慢現象一直存在著，所以客戶那邊的Web App開發人員就失去了對於回應時間的敏銳度。)
 
-		網路太慢，冏rz...
 
-		他們家的網路慢，還不是平均的慢，而是有高峰離峰的，只要是QA Team 開始連線特定的環境(沒錯，就是我們的環境！)作測試，整個網路就會慢下來。
+	
+	事後的反省：
 
-		冏rz...
+	這個事件從發現症狀、尋找原因到提出解決方案、實作、測試除錯循環，起碼花費了300~500個人天的時間。
+	以每個人的成本去算... 90 USD * 8 * 300 = 216000 USD
 
-	這次事件，我基本上是透過 shotgun surgery 的方式找到並解決問題的，但有沒有更好的解決方法呢？
-
+	這次事件，基本上我是透過 shotgun surgery 的方式找到並解決問題的，但正常、好的解決方法是什麼呢？
 	於是我開始去Survey java世界裡比較好的解法會是什麼，首先，我查找了所有跟這個主題相關的技術：
 
 	JVMPI/JVMTI
 		
 	Java Instrumentation
+	JMX
 	Logging Solutions:
 		Log4j
 		Logback
