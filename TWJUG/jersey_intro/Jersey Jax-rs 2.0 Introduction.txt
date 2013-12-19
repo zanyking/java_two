@@ -1,0 +1,15 @@
+Jax-rs 2.0 (Jersey) 使用介紹
+
+
+What is Jax-rs?
+	+. 
+What's new in 2.0?
+	+. 
+Hello Jersey! - A quick introduction of how to set it up.
+	+. 
+The reason I'm going to use Jersey:
+	+. You want to provide a full functional Restful web service to an exsiting Java application stack.
+	+. You are good in Java.
+	+. Instead of dirty fast development, you prefer solid ,robustness and performance.
+	+. You are a GAE lover.
+

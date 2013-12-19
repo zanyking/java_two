@@ -1,0 +1,16 @@
+
+
+什麼是Mockito？
+	+. Author: Szczepan Faber 
+		I was brought up on EasyMock. Normal kids got milk I got classes to test.
+	+. Founded 2008 Jan
+
+為何需要Mock？
+
+Mockito的好處(與easyMock)
+
+
+如何使用Mockito ？
+	Mockito - to mock a given type.
+		+. an Answer of your mock
+	Matchers- 
